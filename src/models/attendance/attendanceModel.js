@@ -1,45 +1,59 @@
-const { Pool } = require('pg');
-const dotenv = require('dotenv');
+const { Sequelize, DataTypes } = require('sequelize');
+const sequelize = require('../../db/connection');
 
-dotenv.config();
-
-const pool = new Pool({
-    user: process.env.DB_USER || "postgres",
-    host: process.env.DB_HOST || "localhost",
-    database: process.env.DB_NAME || "absensi_sekola",
-    password: process.env.DB_PASSWORD || "141414",
-    port: process.env.DB_PORT || 5432,
+const Attendance = sequelize.define('Attendance', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    date: {
+        type: DataTypes.DATEONLY,
+        allowNull: false
+    },
+    status: {
+        type: DataTypes.STRING(50),
+        allowNull: false
+    },
+    user_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    school_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    },
+    created_at: {
+        type: DataTypes.DATE,
+        defaultValue: Sequelize.NOW
+    }
+}, {
+    tableName: 'attendance',
+    timestamps: false
 });
 
-const Attendance = {
-    add: async (date, status, user_id, school_id) => {
-        try {
-            const result = await pool.query(
-                'INSERT INTO attendance (date, status, user_id, school_id) VALUES ($1, $2, $3, $4) RETURNING *',
-                [date, status, user_id, school_id]
-            );
-            return result.rows[0];
-        } catch (error) {
-            throw new Error(`Error adding attendance: ${error.message}`);
-        }
-    },
-
-    getAll: async () => {
-        try {
-            const result = await pool.query(`
-                SELECT 
-                    TO_CHAR(date, 'YYYY-MM-DD') as date,
-                    status,
-                    user_id,
-                    school_id
-                FROM attendance 
-                ORDER BY date DESC
-            `);
-            return result.rows;
-        } catch (error) {
-            throw new Error(`Error getting attendance: ${error.message}`);
-        }
+const add = async (date, status, user_id, school_id) => {
+    try {
+        const newAttendance = await Attendance.create({ date, status, user_id, school_id });
+        return newAttendance;
+    } catch (error) {
+        throw new Error(`Error adding attendance: ${error.message}`);
     }
 };
 
-module.exports = Attendance;
+const getAll = async () => {
+    try {
+        const attendances = await Attendance.findAll({
+            order: [['date', 'DESC']]
+        });
+        return attendances;
+    } catch (error) {
+        throw new Error(`Error getting attendance: ${error.message}`);
+    }
+};
+
+module.exports = {
+    Attendance,
+    add,
+    getAll
+};

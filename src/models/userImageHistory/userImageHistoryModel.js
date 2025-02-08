@@ -1,67 +1,76 @@
-const { Pool } = require('pg');
-const dotenv = require('dotenv');
+const { Sequelize, DataTypes } = require('sequelize');
+const sequelize = require('../../db/connection');
 
-dotenv.config();
-
-const pool = new Pool({
-    user: process.env.DB_USER || "postgres",
-    host: process.env.DB_HOST || "localhost",
-    database: process.env.DB_NAME || "absensi_sekola",
-    password: process.env.DB_PASSWORD || "141414",
-    port: process.env.DB_PORT || 5432,
+const UserImageHistory = sequelize.define('UserImageHistory', {
+    id: {
+        type: DataTypes.INTEGER,
+        autoIncrement: true,
+        primaryKey: true
+    },
+    date: {
+        type: DataTypes.DATEONLY,
+        allowNull: false
+    },
+    photo: {
+        type: DataTypes.STRING,
+        allowNull: true
+    },
+    status: {
+        type: DataTypes.STRING(50),
+        allowNull: false
+    },
+    time: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    location: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    user_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false
+    }
+}, {
+    tableName: 'user_image_history',
+    timestamps: false
 });
 
-const UserImageHistory = {
-    add: async (date, photo, status, time, location, user_id) => {
-        try {
-            const result = await pool.query(
-                'INSERT INTO user_image_history (date, photo, status, time, location, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-                [date, photo, status, time, location, user_id]
-            );
-            return result.rows[0];
-        } catch (error) {
-            throw new Error(`Error adding user image history: ${error.message}`);
-        }
-    },
-
-    getAll: async () => {
-        try {
-            const result = await pool.query(`
-                SELECT 
-                    TO_CHAR(date, 'YYYY-MM-DD') as date,
-                    photo,
-                    status,
-                    time,
-                    location,
-                    user_id
-                FROM user_image_history 
-                ORDER BY date DESC
-            `);
-            return result.rows;
-        } catch (error) {
-            throw new Error(`Error getting user image history: ${error.message}`);
-        }
-    },
-
-    getByUserId: async (user_id) => {
-        try {
-            const result = await pool.query(`
-                SELECT 
-                    TO_CHAR(date, 'YYYY-MM-DD') as date,
-                    photo,
-                    status,
-                    time,
-                    location,
-                    user_id
-                FROM user_image_history 
-                WHERE user_id = $1
-                ORDER BY date DESC
-            `, [user_id]);
-            return result.rows;
-        } catch (error) {
-            throw new Error(`Error getting user image history by user_id: ${error.message}`);
-        }
+const add = async (date, photo, status, time, location, user_id) => {
+    try {
+        const newUserImageHistory = await UserImageHistory.create({ date, photo, status, time, location, user_id });
+        return newUserImageHistory;
+    } catch (error) {
+        throw new Error(`Error adding user image history: ${error.message}`);
     }
 };
 
-module.exports = UserImageHistory;
+const getAll = async () => {
+    try {
+        const userImageHistories = await UserImageHistory.findAll({
+            order: [['date', 'DESC']]
+        });
+        return userImageHistories;
+    } catch (error) {
+        throw new Error(`Error getting user image history: ${error.message}`);
+    }
+};
+
+const getByUserId = async (user_id) => {
+    try {
+        const userImageHistories = await UserImageHistory.findAll({
+            where: { user_id },
+            order: [['date', 'DESC']]
+        });
+        return userImageHistories;
+    } catch (error) {
+        throw new Error(`Error getting user image history by user_id: ${error.message}`);
+    }
+};
+
+module.exports = {
+    UserImageHistory,
+    add,
+    getAll,
+    getByUserId
+};
