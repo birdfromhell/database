@@ -5,6 +5,7 @@ const client = new Client({
   database: "absensi_sekola",
   password: "141414",
   port: 5432,
+  ssl: { rejectUnauthorized: false } // Ensure a secure connection
 });
 
 client.connect((err) => {
