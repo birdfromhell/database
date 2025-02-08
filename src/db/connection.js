@@ -1,10 +1,11 @@
 const Client = require("pg").Pool;
 const client = new Client({
-  user: "postgres",
-  host: "localhost",
-  database: "absensi_sekola",
-  password: "141414",
-  port: 5432,
+  user: process.env.DB_USER || "postgres",
+  host: process.env.DB_HOST || "localhost",
+  database: process.env.DB_NAME || "absensi_sekola",
+  password: process.env.DB_PASSWORD || "141414",
+  port: process.env.DB_PORT || 5432,
+  ssl: { rejectUnauthorized: false, sslmode: 'require' } // Ensure a secure connection
 });
 
 client.connect((err) => {
