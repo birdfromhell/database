@@ -1,10 +1,10 @@
-const schoolsModel = require("../../models/schools/schoolsModel");
+const { School } = require("../../models/schools/schoolsModel");
 const response = require("../../utils/response");
 
 const schoolsController = {
   getAllSchools: async (req, res) => {
     try {
-      const schools = await schoolsModel.getAllSchools();
+      const schools = await School.findAll();
       return response(200, schools, "Data sekolah berhasil diambil", res);
     } catch (error) {
       console.error("Error getting schools:", error);

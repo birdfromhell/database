@@ -1,94 +1,130 @@
-const client = require("../../db/connection");
+const { Sequelize, DataTypes } = require('sequelize');
+const sequelize = require('../../db/connection');
 const bcrypt = require("bcrypt");
 
-const usersModel = {
-  getAllUser: async () => {
-    const result = await client.query("SELECT * FROM users");
-    return result.rows;
+const User = sequelize.define('User', {
+  id: {
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
+    primaryKey: true
   },
+  username: {
+    type: DataTypes.STRING(100),
+    allowNull: false
+  },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: false
+  },
+  email: {
+    type: DataTypes.STRING(255),
+    allowNull: false
+  },
+  school_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  remember_token: {
+    type: DataTypes.STRING(255),
+    allowNull: true
+  }
+}, {
+  tableName: 'users',
+  timestamps: false
+});
 
-  getUserByEmail: async (email) => {
-    try {
-      const query = "SELECT * FROM users WHERE email = $1";
-      const result = await client.query(query, [email]);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error in getUserByEmail:", error);
-      throw error;
-    }
-  },
-
-  getUserByUsername: async (username) => {
-    try {
-      const query = "SELECT * FROM users WHERE username = $1";
-      const result = await client.query(query, [username]);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error in getUserByUsername:", error);
-      throw error;
-    }
-  },
-
-  createUser: async (userData) => {
-    try {
-      const { username, password, email, school_id } = userData;
-      const query = `
-        INSERT INTO users (username, password, email, school_id)
-        VALUES ($1, $2, $3, $4)
-        RETURNING id, username, email, school_id
-      `;
-      const values = [username, password, email, school_id];
-      console.log("Executing query with values:", values);
-      
-      const result = await client.query(query, values);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error in createUser:", error);
-      throw error;
-    }
-  },
-
-  updateUser: async (id, userData) => {
-    const { username, email, password } = userData;
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
-    const sql = `
-      UPDATE users 
-      SET 
-        username = COALESCE($1, username), 
-        email = COALESCE($2, email), 
-        password = COALESCE($3, password) 
-      WHERE id = $4
-      RETURNING *`;
-    const result = await client.query(sql, [
-      username,
-      email,
-      hashedPassword,
-      id,
-    ]);
-    return result.rows[0]; // Mengembalikan data pengguna yang diperbarui
-  },
-
-  deleteUser: async (id) => {
-    const sql = "DELETE FROM users WHERE id = $1";
-    const result = await client.query(sql, [id]);
-    return result.rowCount; // Mengembalikan jumlah row yang terpengaruh
-  },
-
-  getUserByUsernameAndSchool: async (username, school_id) => {
-    try {
-      const query = `
-        SELECT u.*, s.name as school_name 
-        FROM users u 
-        JOIN schools s ON u.school_id = s.id 
-        WHERE u.username = $1 AND u.school_id = $2
-      `;
-      const result = await client.query(query, [username, school_id]);
-      return result.rows[0];
-    } catch (error) {
-      console.error("Error in getUserByUsernameAndSchool:", error);
-      throw error;
-    }
-  },
+const getAllUser = async () => {
+  try {
+    const users = await User.findAll();
+    return users;
+  } catch (error) {
+    throw new Error(`Error getting users: ${error.message}`);
+  }
 };
 
-module.exports = usersModel;
+const getUserByEmail = async (email) => {
+  try {
+    const user = await User.findOne({
+      where: { email }
+    });
+    return user;
+  } catch (error) {
+    throw new Error(`Error getting user by email: ${error.message}`);
+  }
+};
+
+const getUserByUsername = async (username) => {
+  try {
+    const user = await User.findOne({
+      where: { username }
+    });
+    return user;
+  } catch (error) {
+    throw new Error(`Error getting user by username: ${error.message}`);
+  }
+};
+
+const createUser = async (userData) => {
+  try {
+    const { username, password, email, school_id } = userData;
+    const newUser = await User.create({ username, password, email, school_id });
+    return newUser;
+  } catch (error) {
+    throw new Error(`Error creating user: ${error.message}`);
+  }
+};
+
+const updateUser = async (id, userData) => {
+  try {
+    const { username, email, password } = userData;
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+    const updatedUser = await User.update(
+      {
+        username: username || undefined,
+        email: email || undefined,
+        password: hashedPassword || undefined
+      },
+      {
+        where: { id },
+        returning: true,
+        plain: true
+      }
+    );
+    return updatedUser[1]; // Mengembalikan data pengguna yang diperbarui
+  } catch (error) {
+    throw new Error(`Error updating user: ${error.message}`);
+  }
+};
+
+const deleteUser = async (id) => {
+  try {
+    const deletedCount = await User.destroy({
+      where: { id }
+    });
+    return deletedCount; // Mengembalikan jumlah row yang terpengaruh
+  } catch (error) {
+    throw new Error(`Error deleting user: ${error.message}`);
+  }
+};
+
+const getUserByUsernameAndSchool = async (username, school_id) => {
+  try {
+    const user = await User.findOne({
+      where: { username, school_id }
+    });
+    return user;
+  } catch (error) {
+    throw new Error(`Error getting user by username and school: ${error.message}`);
+  }
+};
+
+module.exports = {
+  User,
+  getAllUser,
+  getUserByEmail,
+  getUserByUsername,
+  createUser,
+  updateUser,
+  deleteUser,
+  getUserByUsernameAndSchool
+};

@@ -1,4 +1,4 @@
-const usersModel = require("../../models/users/usersModel");
+const { User } = require("../../models/users/usersModel");
 const nodemailer = require("nodemailer");
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
@@ -27,7 +27,7 @@ const usersController = {
     try {
       // Cek email
       console.log("Checking email:", email);
-      const existingUserByEmail = await usersModel.getUserByEmail(email);
+      const existingUserByEmail = await User.findOne({ where: { email } });
       if (existingUserByEmail) {
         console.log("Email already exists");
         return response(400, "Email sudah terdaftar", "error", res);
@@ -35,7 +35,7 @@ const usersController = {
 
       // Cek username
       console.log("Checking username:", username);
-      const existingUserByUsername = await usersModel.getUserByUsername(username);
+      const existingUserByUsername = await User.findOne({ where: { username } });
       if (existingUserByUsername) {
         console.log("Username already exists");
         return response(400, "Username sudah terdaftar", "error", res);
@@ -47,7 +47,7 @@ const usersController = {
       
       // Buat user baru
       console.log("Creating new user");
-      const newUser = await usersModel.createUser({
+      const newUser = await User.create({
         username,
         password: hashedPassword,
         email,
@@ -80,7 +80,7 @@ const usersController = {
     try {
       // Cari user berdasarkan email
       console.log(`Mencari user dengan email: ${email}`);
-      const user = await usersModel.getUserByEmail(email);
+      const user = await User.findOne({ where: { email } });
 
       if (!user) {
         console.log(`Email ${email} tidak ditemukan di database`);
@@ -92,7 +92,8 @@ const usersController = {
       console.log(`Generated OTP untuk reset password: ${otp}`);
 
       // Simpan OTP ke dalam remember_token
-      await usersModel.storeOtp(email, otp);
+      user.remember_token = otp;
+      await user.save();
       console.log(`OTP disimpan dalam remember_token untuk email: ${email}`);
 
       // Kirim OTP ke email pengguna menggunakan nodemailer
@@ -188,7 +189,7 @@ const usersController = {
     try {
       // Cari user berdasarkan OTP
       console.log(`Mencari user dengan OTP: ${otp}`);
-      const user = await usersModel.getUserByOtp(otp);
+      const user = await User.findOne({ where: { remember_token: otp } });
 
       if (!user) {
         console.log(`OTP ${otp} tidak ditemukan atau sudah kadaluarsa`);
@@ -244,7 +245,7 @@ const usersController = {
       console.log(
         "Mencari user berdasarkan remember_token (OTP yang disimpan)"
       );
-      const user = await usersModel.getUserByRememberToken();
+      const user = await User.findOne({ where: { remember_token: otp } });
 
       if (!user) {
         console.log("Token OTP tidak ditemukan atau sudah kadaluarsa");
@@ -261,28 +262,22 @@ const usersController = {
       console.log("Password baru telah di-hash");
 
       // Update password pengguna
-      const updatedCount = await usersModel.updatePassword(
-        user.email,
-        hashedPassword
+      user.password = hashedPassword;
+      await user.save();
+
+      console.log("Password berhasil direset untuk user:", user.email);
+
+      // Reset OTP setelah password berhasil diubah
+      user.remember_token = null;
+      await user.save();
+      console.log("OTP berhasil dihapus setelah reset password");
+
+      return response(
+        200,
+        { message: "Password berhasil direset" },
+        "Password berhasil diubah",
+        res
       );
-
-      if (updatedCount > 0) {
-        console.log("Password berhasil direset untuk user:", user.email);
-
-        // Reset OTP setelah password berhasil diubah
-        await usersModel.clearOtp(user.email);
-        console.log("OTP berhasil dihapus setelah reset password");
-
-        return response(
-          200,
-          { message: "Password berhasil direset" },
-          "Password berhasil diubah",
-          res
-        );
-      } else {
-        console.log("Pengguna tidak ditemukan untuk email:", user.email);
-        return response(404, "Pengguna tidak ditemukan", "error", res);
-      }
     } catch (error) {
       console.error("Error di handler reset password:", error);
       return response(500, "Internal server error", "error", res);
@@ -300,7 +295,7 @@ const usersController = {
       }
 
       // Cari user berdasarkan username dan school_id
-      const user = await usersModel.getUserByUsernameAndSchool(username, school_id);
+      const user = await User.findOne({ where: { username, school_id } });
       console.log("Found user:", user); // untuk debugging
 
       if (!user) {
@@ -340,7 +335,7 @@ const usersController = {
 
   getAllUser: async (req, res) => {
     try {
-      const users = await usersModel.getAllUser();
+      const users = await User.findAll();
       response(200, users, "ambil semua data user", res);
     } catch (error) {
       response(500, "gagal", "error", res);
@@ -350,9 +345,9 @@ const usersController = {
   getUserByUsername: async (req, res) => {
     const username = req.params.username;
     try {
-      const user = await usersModel.getUserByUsername(username);
-      if (user.length) {
-        response(200, user[0], "ambil detail data user", res);
+      const user = await User.findOne({ where: { username } });
+      if (user) {
+        response(200, user, "ambil detail data user", res);
       } else {
         response(404, "data tidak ada", "error", res);
       }
@@ -364,7 +359,7 @@ const usersController = {
   createUser: async (req, res) => {
     const userData = req.body;
     try {
-      const newUser = await usersModel.createUser(userData);
+      const newUser = await User.create(userData);
       response(201, newUser, "data user berhasil ditambah", res);
     } catch (error) {
       response(500, "gagal", "error", res);
@@ -375,7 +370,7 @@ const usersController = {
     const username = req.params.username;
     const userData = req.body;
     try {
-      const updatedCount = await usersModel.updateUser(username, userData);
+      const updatedCount = await User.update(userData, { where: { username } });
       if (updatedCount > 0) {
         response(
           200,
@@ -413,9 +408,9 @@ const usersController = {
       const hashedPassword = await bcrypt.hash(newPassword, 10); // 10 adalah tingkat salt rounds
 
       // Panggil model untuk mengupdate password
-      const updatedCount = await usersModel.updatePassword(
-        username,
-        hashedPassword
+      const updatedCount = await User.update(
+        { password: hashedPassword },
+        { where: { username } }
       );
 
       if (updatedCount > 0) {
@@ -438,7 +433,7 @@ const usersController = {
   deleteUser: async (req, res) => {
     const { username } = req.body;
     try {
-      const deletedCount = await usersModel.deleteUser(username);
+      const deletedCount = await User.destroy({ where: { username } });
       if (deletedCount > 0) {
         response(200, { isDeleted: true }, "delete data user berhasil", res);
       } else {
