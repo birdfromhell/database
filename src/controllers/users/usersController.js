@@ -5,6 +5,7 @@ const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const response = require("../../utils/response");
 const schoolsModel = require("../../models/schools/schoolsModel");
+const dotenv = require("dotenv");
 
 const usersController = {
 
