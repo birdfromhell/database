@@ -21,6 +21,9 @@ app.use("/api/schools", schoolsRoutes);
 const attendanceRoutes = require("./src/routes/attendance/attendanceRoutes");
 app.use("/api/attendance", attendanceRoutes);
 
+const userImageHistoryRoutes = require("./src/routes/userImageHistory/userImageHistoryRoutes");
+app.use("/api/user-image-history", userImageHistoryRoutes);
+
 // Root endpoint
 app.get("/", (req, res) => {
   response(200, "API v1 ready to go", "SUCCESS", res);
